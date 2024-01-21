@@ -1,5 +1,5 @@
 Video Link -- https://youtu.be/e42hIYkvxoQ
-============================================================= Install and Configure the Jenkins-Master & Jenkins-Agent =============================================================
+============================================================= Install and Configure the Jenkins-Master =============================================================
 ## Install Java
 $ sudo apt update
 $ sudo apt upgrade
@@ -7,6 +7,17 @@ $ sudo vi /etc/hostname
 $ sudo init 6
 $ sudo apt install openjdk-17-jre
 $ java -version
+$ sudo nano /etc/ssh/ssh_config or just navigate to file manuelly
+$ cd /etc/ssh sudo vi ssh_config  manuelly
+then uncomment 
+#PubkeyAuthentication yes
+PubkeyAuthentication yes
+#AuthorizedKeysFile     .ssh/authorized_keys .ssh/authorized_keys2
+AuthorizedKeysFile     .ssh/authorized_keys .ssh/authorized_keys2
+then save and close
+$ sudo service sshd reload or $ sudo systemctl restart ssh
+
+
 
 ## Install Jenkins
 Refer--https://www.jenkins.io/doc/book/installing/linux/
@@ -21,12 +32,35 @@ sudo apt-get install jenkins
 $ sudo systemctl enable jenkins       //Enable the Jenkins service to start at boot
 $ sudo systemctl start jenkins        //Start Jenkins as a service
 $ systemctl status jenkins
-$ sudo vi /etc/ssh/sshd_config
-$ sudo service sshd reload
+$ sudo nano /etc/ssh/sshd_config
+$ sudo systemctl restart ssh
 $ ssh-keygen OR $ ssh-keygen -t ed25519
 $ cd .ssh
 
-============================================================= IInstall and Configure the Jenkins-dynamic docker agent =============================================================
+
+============================================================= Install and Configure the Jenkins-Agent =============================================================
+## Install and configure jenkins agent
+$ sudo apt update
+$ sudo apt upgrade
+$ sudo vi /etc/hostname
+$ sudo init 6   //reboot system
+$ sudo apt install openjdk-17-jre
+$ java -version
+$ sudo apt-get install docker.io
+$ sudo usermod -aG docker $USER  //add the current in group docker
+$ sudo nano /etc/ssh/ssh_config or just navigate to file manuelly
+$ cd /etc/ssh sudo vi ssh_config  manuelly
+then uncomment 
+#PubkeyAuthentication yes
+PubkeyAuthentication yes
+#AuthorizedKeysFile     .ssh/authorized_keys .ssh/authorized_keys2
+AuthorizedKeysFile     .ssh/authorized_keys .ssh/authorized_keys2
+then save and close
+$  sudo service sshd reload or $ sudo systemctl restart ssh
+
+
+## Install and configure jenkins dynamic agent with docker
+============================================================= Install and Configure the Jenkins-dynamic docker agent =============================================================
 Advantages of using Docker Containers as Jenkins Build Agents
 Ephemeral 
 Better resource utilization
@@ -35,16 +69,44 @@ Scalability
 
 Pre-requisites:
 Jenkins Master is already setup and running
-port 8080 opened in Jenkins EC2's firewall rule
+port 8080 opened in Jenkins EC2s firewall rule
 Setup Docker host. Creating another EC2 instance is recommended to serve as a Docker Host. 
 port 4243 opened in docker host machine 
 32768 - 60999 opened in docker host machine 
 
+## Install Docker
+Install Docker Ubuntu | How to install Docker in Ubuntu 22.0.4 | Setup Docker on Ubuntu
+$ sudo apt update
+$ sudo apt-get install docker.io
+
+Add Ubuntu user to Docker group
+$ sudo usermod -aG docker $USER
+$ sudo init 6  
+
+We need to reload shell in order to have new group settings applied. Now you need to logout and log back in command line or execute the below command:
+$ newgrp docker
+
+The Docker service needs to be setup to run at startup. To do so, type in each command followed by enter:
+$ sudo systemctl enable docker
+$ sudo systemctl start docker
+$ sudo systemctl status docker
+$ docker --version
+
+$ sudo docker run hello-world
+
+
 Step 1 - Configure Docker Host with Remote API
 $ sudo vi /lib/systemd/system/docker.service
+look for this ExecStart=/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock
 
-You can replace with below line:
-$ExecStart=/usr/bin/dockerd -H tcp://0.0.0.0:4243 -H unix:///var/run/docker.sock
+You can replace it with below line:
+$ ExecStart=/usr/bin/dockerd -H tcp://0.0.0.0:4243 -H unix:///var/run/docker.sock
+
+# If youre using Docker in a production environment, consider securing the Docker daemon with TLS to encrypt communication and authenticate clients. Ensure that only trusted entities have access to the Docker API
+
+# Here's an example of how you can secure the Docker daemon with TLS:
+$ ExecStart=/usr/bin/dockerd --tlsverify --tlscacert=/etc/docker/ca.pem --tlscert=/etc/docker/server-cert.pem --tlskey=/etc/docker/server-key.pem -H tcp://0.0.0.0:4243 -H unix:///var/run/docker.sock
+
 
 Restart Docker service
 $ sudo systemctl daemon-reload
@@ -54,12 +116,30 @@ Validate API by executing below curl command
 $ curl http://localhost:4243/version
 
 Step 2 - Build Jenkins slave Docker image
-Download Dockerfile from below repo.
+Download Dockerfile from repo.
 git clone githubrepo; cd cloned repo
 
 Build Docker image
 
 $ sudo docker build -t cloned repo .
+# Move the Dockerfile to the root directory
+mv ~/jenkins-docker-slave/Dockerfile ~/Dockerfile
+
+# Move the README.md to the root directory
+mv ~/jenkins-docker-slave/README.md ~/README.md
+
+<!-- how to delete docker images -->
+# Delete the docker-slave image(image name)
+sudo docker rmi docker-slave
+
+# Delete the ubuntu:18.04 image
+sudo docker rmi ubuntu:18.04
+
+# Delete the hello-world image
+sudo docker rmi hello-world
+
+# Remove all Docker images
+sudo docker rmi $(sudo docker images -q)
 
 Step 3 - Configure Jenkins Server with Docker plug-in
 Now login to Jenkins Master. Make sure you install Docker plug-in in Jenkins.
@@ -84,13 +164,90 @@ Enter SSH credentials per your Dockerfile - jenkins/password
 
 choose Never Pull as pull strategy as we have already image stored in DockerHost.
 
+
+
 ============================================================= Install and Configure the nginx =============================================================
+### Install Nginx Reverse Proxy for Jenkins¶
+Nginx is one of the most popular web servers in the world and is responsible for hosting some of the largest and highest-traffic sites on the internet. It is a lightweight choice that can be used as either a web server or reverse proxy.
+
+In this tutorial, you will configure Nginx as a reverse proxy to direct client requests to Jenkins.
+Prerequsites
+
+### Jenkins server already installed and running
+Update Package Repository and Upgrade Packages¶
+Run from shell prompt
+
+$ sudo apt update
+$ sudo apt upgrade
+
+### Installing Nginx¶
+Run from shell prompt
+
+$ sudo apt install nginx
+
+### Checking your Web Server¶
+We can check with the systemd init system to make sure the service is running by typing:
+
+Run from shell prompt
+$ systemctl status nginx
+
+
+In order for Nginx to serve this content, it’s necessary to create a server block with the correct directives.
+
+Run from shell prompt (replace your domain)
+$ sudo vi /etc/nginx/sites-available/your-domain
+
+Paste in the following configuration block, which is similar to the default, but updated for our new directory and domain name:
+Paste the below (replace your domain)
+
+"
+upstream jenkins{
+    server 127.0.0.1:8080;
+}
+
+server{
+    listen      80;
+    server_name jenkins.dev.dman.cloud;
+
+    access_log  /var/log/nginx/jenkins.access.log;
+    error_log   /var/log/nginx/jenkins.error.log;
+
+    proxy_buffers 16 64k;
+    proxy_buffer_size 128k;
+
+    location / {
+        proxy_pass  http://jenkins;
+        proxy_next_upstream error timeout invalid_header http_500 http_502 http_503 http_504;
+        proxy_redirect off;
+
+        proxy_set_header    Host            $host;
+        proxy_set_header    X-Real-IP       $remote_addr;
+        proxy_set_header    X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header    X-Forwarded-Proto https;
+    }
+
+}
+
+"
+Next, let’s enable the file by creating a link from it to the sites-enabled directory, which Nginx reads from during startup:
+
+$ sudo ln -s /etc/nginx/sites-available/example.domain /etc/nginx/sites-enabled/
+
+Next, test to make sure that there are no syntax errors in any of your Nginx files:
+Run from shell prompt
+
+$ sudo nginx -t
+
+If there aren’t any problems, restart Nginx to enable your changes:
+Run from shell prompt
+
+$ sudo systemctl restart nginx
+
+% Nginx should now be serving Jenkins from your domain name. You can test this by navigating to http://your_domain
 
 
 
-
-
-============================================================= Install and Configure the SonarQube =============================================================
+============================================================= Install and Configure SonarQube =============================================================
 ## Update Package Repository and Upgrade Packages
     $ sudo apt update
     $ sudo apt upgrade
