@@ -185,19 +185,19 @@ Run from shell prompt
 
 $ sudo apt install nginx
 
-### Checking your Web Server¶
+## Checking your Web Server¶
 We can check with the systemd init system to make sure the service is running by typing:
 
-Run from shell prompt
+## Run from shell prompt
 $ systemctl status nginx
 
 
-In order for Nginx to serve this content, it’s necessary to create a server block with the correct directives.
+## In order for Nginx to serve this content, it’s necessary to create a server block with the correct directives.
 
-Run from shell prompt (replace your domain)
+## Run from shell prompt (replace your domain)
 $ sudo vi /etc/nginx/sites-available/your-domain
 
-Paste in the following configuration block, which is similar to the default, but updated for our new directory and domain name:
+## Paste in the following configuration block, which is similar to the default, but updated for our new directory and domain name:
 Paste the below (replace your domain)
 
 "
@@ -229,11 +229,11 @@ server{
 }
 
 "
-Next, let’s enable the file by creating a link from it to the sites-enabled directory, which Nginx reads from during startup:
+## Next, let’s enable the file by creating a link from it to the sites-enabled directory, which Nginx reads from during startup:
 
 $ sudo ln -s /etc/nginx/sites-available/example.domain /etc/nginx/sites-enabled/
 
-Next, test to make sure that there are no syntax errors in any of your Nginx files:
+## Next, test to make sure that there are no syntax errors in any of your Nginx files:
 Run from shell prompt
 
 $ sudo nginx -t
