@@ -3,7 +3,7 @@ Video Link -- https://youtu.be/e42hIYkvxoQ
 ## Install Java
 $ sudo apt update
 $ sudo apt upgrade
-$ sudo nano /etc/hostname
+$ sudo vi /etc/hostname
 $ sudo init 6
 $ sudo apt install openjdk-17-jre
 $ java -version
@@ -21,10 +21,74 @@ sudo apt-get install jenkins
 $ sudo systemctl enable jenkins       //Enable the Jenkins service to start at boot
 $ sudo systemctl start jenkins        //Start Jenkins as a service
 $ systemctl status jenkins
-$ sudo nano /etc/ssh/sshd_config
+$ sudo vi /etc/ssh/sshd_config
 $ sudo service sshd reload
 $ ssh-keygen OR $ ssh-keygen -t ed25519
 $ cd .ssh
+
+============================================================= IInstall and Configure the Jenkins-dynamic docker agent =============================================================
+Advantages of using Docker Containers as Jenkins Build Agents
+Ephemeral 
+Better resource utilization
+Customized agents as it can run different builds like Java 8, Java 11 
+Scalability 
+
+Pre-requisites:
+Jenkins Master is already setup and running
+port 8080 opened in Jenkins EC2's firewall rule
+Setup Docker host. Creating another EC2 instance is recommended to serve as a Docker Host. 
+port 4243 opened in docker host machine 
+32768 - 60999 opened in docker host machine 
+
+Step 1 - Configure Docker Host with Remote API
+$ sudo vi /lib/systemd/system/docker.service
+
+You can replace with below line:
+$ExecStart=/usr/bin/dockerd -H tcp://0.0.0.0:4243 -H unix:///var/run/docker.sock
+
+Restart Docker service
+$ sudo systemctl daemon-reload
+$ sudo service docker restart
+
+Validate API by executing below curl command
+$ curl http://localhost:4243/version
+
+Step 2 - Build Jenkins slave Docker image
+Download Dockerfile from below repo.
+git clone githubrepo; cd cloned repo
+
+Build Docker image
+
+$ sudo docker build -t cloned repo .
+
+Step 3 - Configure Jenkins Server with Docker plug-in
+Now login to Jenkins Master. Make sure you install Docker plug-in in Jenkins.
+
+Now go to Manage Jenkins -> Configure Nodes Cloud and select docker
+
+Click on Docker Cloud Details
+Enter docker host dns name or ip address
+tcp://docker_host_dns:4243
+Make sure Enabled is selected
+Now click on Test Connection to make sure connecting with docker host is working.
+
+Step 4 - Configure Docker Agent Templates
+Now click on Docker Agent templates:
+Enter label as "docker-slave" and give some name
+Click on Enabled
+Now enter the name of the docker image you have built previously in docker host.
+enter /home/jenkins as Remote file system root
+
+Choose Connect with SSH as connection method:
+Enter SSH credentials per your Dockerfile - jenkins/password
+
+choose Never Pull as pull strategy as we have already image stored in DockerHost.
+
+============================================================= Install and Configure the nginx =============================================================
+
+
+
+
 
 ============================================================= Install and Configure the SonarQube =============================================================
 ## Update Package Repository and Upgrade Packages
